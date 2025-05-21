@@ -1,18 +1,39 @@
 body {
-  margin: 0;
-  padding: 0;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 100vh;
   background-color: black;
+  color: white;
+  font-family: Arial, sans-serif;
+  text-align: center;
 }
 
-#game-container {
+#gameArea {
   position: relative;
+  margin: 0 auto;
+  width: 600px;
+  height: 400px;
+  background-color: #111;
+  border: 2px solid white;
+  overflow: hidden;
 }
 
-canvas {
-  border: 2px solid white;
-  background-color: black;
+#player {
+  width: 40px;
+  height: 20px;
+  background: lime;
+  position: absolute;
+  bottom: 10px;
+  left: 280px;
+}
+
+.enemy {
+  width: 40px;
+  height: 20px;
+  background: red;
+  position: absolute;
+}
+
+.bullet {
+  width: 4px;
+  height: 10px;
+  background: yellow;
+  position: absolute;
 }
