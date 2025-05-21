@@ -3,36 +3,57 @@ const player = document.getElementById("player");
 const scoreDisplay = document.getElementById("score");
 const livesDisplay = document.getElementById("lives");
 const gameOverText = document.getElementById("gameOver");
+const restartBtn = document.getElementById("restartBtn");
 
-let playerX = 280;
-let bullets = [];
-let enemyBullets = [];
-let enemies = [];
-let score = 0;
-let lives = 3;
-let gameRunning = true;
+let gameState;
 
-function movePlayer(e) {
-  if (!gameRunning) return;
-  if (e.key === "ArrowLeft" && playerX > 0) {
-    playerX -= 10;
+function initGame() {
+  gameState = {
+    playerX: 280,
+    bullets: [],
+    enemyBullets: [],
+    enemies: [],
+    score: 0,
+    lives: 3,
+    level: 1,
+    running: true,
+    frame: 0,
+  };
+
+  player.style.left = gameState.playerX + "px";
+  scoreDisplay.textContent = gameState.score;
+  livesDisplay.textContent = gameState.lives;
+  gameOverText.style.display = "none";
+  gameArea.innerHTML = '';
+  gameArea.appendChild(player);
+  spawnEnemies();
+  gameLoop();
+}
+
+function spawnEnemies(rows = 3, cols = 8) {
+  gameState.enemies = [];
+
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const enemy = document.createElement("div");
+      enemy.className = "enemy";
+      enemy.style.left = c * 70 + "px";
+      enemy.style.top = r * 40 + "px";
+      enemy.dataset.dir = "right";
+      enemy.dataset.row = r;
+      gameArea.appendChild(enemy);
+      gameState.enemies.push(enemy);
+    }
   }
-  if (e.key === "ArrowRight" && playerX < 560) {
-    playerX += 10;
-  }
-  if (e.key === " ") {
-    fireBullet();
-  }
-  player.style.left = playerX + "px";
 }
 
 function fireBullet() {
   const bullet = document.createElement("div");
   bullet.className = "bullet";
-  bullet.style.left = playerX + 18 + "px";
+  bullet.style.left = gameState.playerX + 18 + "px";
   bullet.style.bottom = "30px";
   gameArea.appendChild(bullet);
-  bullets.push(bullet);
+  gameState.bullets.push(bullet);
 }
 
 function fireEnemyBullet(enemyX, enemyY) {
@@ -41,21 +62,7 @@ function fireEnemyBullet(enemyX, enemyY) {
   bullet.style.left = enemyX + 18 + "px";
   bullet.style.top = enemyY + "px";
   gameArea.appendChild(bullet);
-  enemyBullets.push(bullet);
-}
-
-function spawnEnemies(rows = 3, cols = 8) {
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      const enemy = document.createElement("div");
-      enemy.className = "enemy";
-      enemy.style.left = c * 70 + "px";
-      enemy.style.top = r * 40 + "px";
-      enemy.dataset.dir = "right";
-      gameArea.appendChild(enemy);
-      enemies.push(enemy);
-    }
-  }
+  gameState.enemyBullets.push(bullet);
 }
 
 function detectCollision(a, b) {
@@ -69,11 +76,9 @@ function detectCollision(a, b) {
   );
 }
 
-function updateGame() {
-  if (!gameRunning) return;
-
+function updateBullets() {
   // Player bullets
-  bullets = bullets.filter(bullet => {
+  gameState.bullets = gameState.bullets.filter(bullet => {
     let bottom = parseInt(bullet.style.bottom);
     bottom += 8;
     bullet.style.bottom = bottom + "px";
@@ -85,80 +90,105 @@ function updateGame() {
   });
 
   // Enemy bullets
-  enemyBullets = enemyBullets.filter(bullet => {
+  gameState.enemyBullets = gameState.enemyBullets.filter(bullet => {
     let top = parseInt(bullet.style.top);
     top += 6;
     bullet.style.top = top + "px";
+
     if (top > 400) {
       gameArea.removeChild(bullet);
       return false;
     }
 
-    // Hit player
     if (detectCollision(bullet, player)) {
       gameArea.removeChild(bullet);
-      lives -= 1;
-      livesDisplay.textContent = lives;
-      if (lives <= 0) endGame();
+      gameState.lives -= 1;
+      livesDisplay.textContent = gameState.lives;
+      if (gameState.lives <= 0) endGame();
       return false;
     }
 
     return true;
   });
+}
 
-  // Enemy movement
-  enemies.forEach(enemy => {
-    let dir = enemy.dataset.dir;
+function updateEnemies() {
+  gameState.enemies.forEach(enemy => {
     let left = parseInt(enemy.style.left);
-    if (dir === "right") left += 1;
-    else left -= 1;
-    if (left > 560) {
-      left = 560;
+    let dir = enemy.dataset.dir;
+
+    if (dir === "right") left += 0.5 + gameState.level * 0.1;
+    else left -= 0.5 + gameState.level * 0.1;
+
+    if (left >= 560) {
       enemy.dataset.dir = "left";
       enemy.style.top = parseInt(enemy.style.top) + 20 + "px";
-    } else if (left < 0) {
-      left = 0;
+    } else if (left <= 0) {
       enemy.dataset.dir = "right";
       enemy.style.top = parseInt(enemy.style.top) + 20 + "px";
     }
+
     enemy.style.left = left + "px";
 
-    // Fire enemy bullet randomly
-    if (Math.random() < 0.002) {
+    if (Math.random() < 0.001 + gameState.level * 0.0005) {
       fireEnemyBullet(left, parseInt(enemy.style.top));
     }
   });
 
   // Bullet hits enemy
-  enemies = enemies.filter(enemy => {
-    for (let bullet of bullets) {
+  gameState.enemies = gameState.enemies.filter(enemy => {
+    for (let bullet of gameState.bullets) {
       if (detectCollision(bullet, enemy)) {
         gameArea.removeChild(enemy);
         gameArea.removeChild(bullet);
-        bullets.splice(bullets.indexOf(bullet), 1);
-        score += 10;
-        scoreDisplay.textContent = score;
+        gameState.bullets.splice(gameState.bullets.indexOf(bullet), 1);
+        gameState.score += 10;
+        scoreDisplay.textContent = gameState.score;
         return false;
       }
     }
     return true;
   });
 
-  if (enemies.length === 0) {
+  // Level up if all enemies defeated
+  if (gameState.enemies.length === 0) {
+    gameState.level += 1;
     spawnEnemies();
   }
+}
 
-  requestAnimationFrame(updateGame);
+function gameLoop() {
+  if (!gameState.running) return;
+
+  gameState.frame++;
+  updateBullets();
+  updateEnemies();
+
+  requestAnimationFrame(gameLoop);
+}
+
+function movePlayer(e) {
+  if (!gameState.running) return;
+
+  if (e.key === "ArrowLeft" && gameState.playerX > 0) {
+    gameState.playerX -= 10;
+  }
+  if (e.key === "ArrowRight" && gameState.playerX < 560) {
+    gameState.playerX += 10;
+  }
+  if (e.key === " ") {
+    fireBullet();
+  }
+
+  player.style.left = gameState.playerX + "px";
 }
 
 function endGame() {
-  gameRunning = false;
+  gameState.running = false;
   gameOverText.style.display = "block";
-  enemies.forEach(e => gameArea.removeChild(e));
-  bullets.forEach(b => gameArea.removeChild(b));
-  enemyBullets.forEach(b => gameArea.removeChild(b));
 }
 
+restartBtn.addEventListener("click", initGame);
 document.addEventListener("keydown", movePlayer);
-spawnEnemies();
-updateGame();
+
+initGame();
