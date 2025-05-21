@@ -37,10 +37,23 @@ function spawnEnemies(rows = 3, cols = 8) {
     for (let c = 0; c < cols; c++) {
       const enemy = document.createElement("div");
       enemy.className = "enemy";
-      enemy.style.left = c * 70 + "px";
-      enemy.style.top = r * 40 + "px";
-      enemy.dataset.dir = "right";
-      enemy.dataset.row = r;
+
+      const x = c * 70;
+      const y = r * 40;
+
+      enemy.style.left = x + "px";
+      enemy.style.top = y + "px";
+
+      const speedX = (Math.random() * 1.5 + 0.5).toFixed(2); // 0.5–2
+      const speedY = (Math.random() * 1.5).toFixed(2);       // 0–1.5
+      const dirX = Math.random() < 0.5 ? -1 : 1;
+      const dirY = Math.random() < 0.5 ? -1 : 1;
+
+      enemy.dataset.speedX = speedX;
+      enemy.dataset.speedY = speedY;
+      enemy.dataset.dirX = dirX;
+      enemy.dataset.dirY = dirY;
+
       gameArea.appendChild(enemy);
       gameState.enemies.push(enemy);
     }
@@ -114,28 +127,36 @@ function updateBullets() {
 
 function updateEnemies() {
   gameState.enemies.forEach(enemy => {
-    let left = parseInt(enemy.style.left);
-    let dir = enemy.dataset.dir;
+    let left = parseFloat(enemy.style.left);
+    let top = parseFloat(enemy.style.top);
 
-    if (dir === "right") left += 0.5 + gameState.level * 0.1;
-    else left -= 0.5 + gameState.level * 0.1;
+    let speedX = parseFloat(enemy.dataset.speedX);
+    let speedY = parseFloat(enemy.dataset.speedY);
+    let dirX = parseInt(enemy.dataset.dirX);
+    let dirY = parseInt(enemy.dataset.dirY);
 
-    if (left >= 560) {
-      enemy.dataset.dir = "left";
-      enemy.style.top = parseInt(enemy.style.top) + 20 + "px";
-    } else if (left <= 0) {
-      enemy.dataset.dir = "right";
-      enemy.style.top = parseInt(enemy.style.top) + 20 + "px";
+    left += speedX * dirX;
+    top += speedY * dirY;
+
+    // Bounce on edge
+    if (left <= 0 || left >= 560) {
+      dirX *= -1;
+      enemy.dataset.dirX = dirX;
+    }
+    if (top <= 0 || top >= 300) {
+      dirY *= -1;
+      enemy.dataset.dirY = dirY;
     }
 
     enemy.style.left = left + "px";
+    enemy.style.top = top + "px";
 
     if (Math.random() < 0.001 + gameState.level * 0.0005) {
-      fireEnemyBullet(left, parseInt(enemy.style.top));
+      fireEnemyBullet(left, top);
     }
   });
 
-  // Bullet hits enemy
+  // Collision detection
   gameState.enemies = gameState.enemies.filter(enemy => {
     for (let bullet of gameState.bullets) {
       if (detectCollision(bullet, enemy)) {
@@ -150,7 +171,7 @@ function updateEnemies() {
     return true;
   });
 
-  // Level up if all enemies defeated
+  // Level up
   if (gameState.enemies.length === 0) {
     gameState.level += 1;
     spawnEnemies();
@@ -159,11 +180,9 @@ function updateEnemies() {
 
 function gameLoop() {
   if (!gameState.running) return;
-
   gameState.frame++;
   updateBullets();
   updateEnemies();
-
   requestAnimationFrame(gameLoop);
 }
 
